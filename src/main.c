@@ -1,4 +1,5 @@
 #include <complex.h>
+#include <time.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,24 +20,25 @@ void init_cpu(CPU* cpu) {
 void alu(CPU* cpu, uint8_t opcode) {
     switch (opcode) {
         case 0x02: { // ADDX
-            uint8_t result = cpu->registers[cpu->memory[cpu->PC++]] + cpu->memory[cpu->PC++];
-            cpu->registers[cpu->memory[cpu->PC++]] = result;
+            uint8_t reg = MEMORY_SIZE - 1 - cpu->memory[cpu->PC++];
+            uint8_t result = cpu->memory[reg] + cpu->memory[cpu->PC++];
+            cpu->memory[reg] = result;
             break;
         }
         case 0x03: { // ADDR
             uint8_t reg_1 = cpu->memory[cpu->PC++];
             uint8_t reg_2 = cpu->memory[cpu->PC++];
-            uint8_t result = cpu->registers[reg_1]+cpu->registers[reg_2];
-            cpu->registers[reg_1] = result;
+            uint8_t result = cpu->memory[reg_1] + cpu->memory[reg_2];
+            cpu->memory[reg_1] = result;
             break;
         }
-        case 0x04: { // SUB
-            uint8_t reg_1 = cpu->memory[cpu->PC++];
-            uint8_t reg_2 = cpu->memory[cpu->PC++];
-            uint8_t result = cpu->registers[reg_1] - cpu->registers[reg_2];
-            cpu->registers[reg_1] = result;
-            break;  
-        }
+        // case 0x04: { // SUB
+        //     uint8_t reg_1 = cpu->memory[cpu->PC++];
+        //     uint8_t reg_2 = cpu->memory[cpu->PC++];
+        //     uint8_t result = cpu->registers[reg_1] - cpu->registers[reg_2];
+        //     cpu->registers[reg_1] = result;
+        //     break;  
+        // }
         default: 
             printf("Unknown opcode in ALU: 0x%02X\n", opcode);
             exit(1);
@@ -59,18 +61,18 @@ void execute_instruction(CPU* cpu) {
         case 0x04: // SUB: reg - reg
             alu(cpu, opcode);
             break;
-        case 0x05: // STORE: reg, addr
-            store_op(cpu);
-            break;
+        // case 0x05: // STORE: reg, addr
+        //     store_op(cpu);
+        //     break;
         case 0x07: // JUMP: addr
             jump_op(cpu);
             break;
-        case 0x08: // JUMP IF ZERO: reg, addr
-            jump_z_op(cpu);
-            break;
-        case 0x09: // OUT: reg
-            out_op(cpu);
-            break;
+        // case 0x08: // JUMP IF ZERO: reg, addr
+        //     jump_z_op(cpu);
+        //     break;
+        // case 0x09: // OUT: reg
+        //     out_op(cpu);
+        //     break;
         case 0xFF: // HLT
             printf("Processor halted, exiting emulator.");
             exit(0);
@@ -105,33 +107,55 @@ void load_op(CPU* cpu) {
     dest = cpu->memory[cpu->PC++];
     value = cpu->memory[cpu->PC++];
     
-    if (dest >= 0 && dest < 4) {
-        cpu->registers[dest] = value;
-    } else {
-        printf("Invalid destination LOAD operation: 0x%02X\n", dest);
-    }
+    cpu->memory[dest] = value;
+}
+
+void jump_op(CPU *cpu) {
+    uint8_t dest = cpu->memory[cpu->PC++];
+    printf("JUMP A=%02X B=%02X C=%02X\n", cpu->memory[A], cpu->memory[B], cpu->memory[C]); 
+    cpu->PC = dest;
 }
 
 void run_emulator(CPU* cpu) {
+    int counter = 0;
     while (1) {
-        execute_instruction(cpu);
-        print_cpu_state(cpu);
+        if (counter == MAX_ITERATION) {
+            break;
+        } else { 
+            execute_instruction(cpu);
+            // print_cpu_state(cpu);
+            counter++;
+        }
     }
 }
 
 int main() {
+    struct timespec start, end;
+    
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
     CPU cpu;
     init_cpu(&cpu);
 
     uint8_t program[] = {
-        0x00, 0x00, 0x05,
-        0x00, 0x01, 0x01,
-        0x01, 
-        0xFF
+       LOAD, A, 0x00, // LOAD A 0 
+       LOAD, B, 0x01, // LOAD B 1
+       LOAD, C, 0x00, // LOAD C 0 LOOP
+       ADDR, C, A, // ADDR C A
+       LOAD, A, 0x00, // LOAD A 0
+       ADDR, A, B, // ADDR A B
+       ADDR, B, C, // ADDR B C
+       JUMP, 0x06 // JUMP LOOP
     };
 
     load_program(&cpu, program, sizeof(program));
     run_emulator(&cpu);
+    
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    long seconds = end.tv_sec - start.tv_sec; // Секунды
+    long nanoseconds = end.tv_nsec - start.tv_nsec; // Наносекунды
+    double elapsed = seconds + nanoseconds * 1e-9; // Время в секундах
+    printf("TIME: %.9f\n", elapsed);
     
     return 0;
 }

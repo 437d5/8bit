@@ -1,0 +1,8 @@
+LOAD, A, 0x00, // LOAD A 0 
+LOAD, B, 0x01, // LOAD B 1
+LOAD, C, 0x00, // LOAD C 0 LOOP
+ADDR, C, A, // ADDR C A
+LOAD, A, 0x00, // LOAD A 0
+ADDR, A, B, // ADDR A B
+ADDR, B, C, // ADDR B C
+JUMP, 0x06 // JUMP LOOP
